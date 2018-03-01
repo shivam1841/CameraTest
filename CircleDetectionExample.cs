@@ -30,6 +30,9 @@ namespace OpenCVForUnityExample
         /// The gray mat.
         /// </summary>
         Mat grayMat;
+        Mat redframe_threshold;
+        Mat blueframe_threshold;
+        Mat frame_threshold;
 
         // Use this for initialization
         void Start ()
@@ -68,6 +71,9 @@ namespace OpenCVForUnityExample
             }
 
             grayMat = new Mat (webCamTextureMat.rows (), webCamTextureMat.cols (), CvType.CV_8UC1);
+            redframe_threshold = new Mat(webCamTextureMat.rows(), webCamTextureMat.cols(), CvType.CV_8UC1);
+            blueframe_threshold = new Mat(webCamTextureMat.rows(), webCamTextureMat.cols(), CvType.CV_8UC1);
+            frame_threshold = new Mat(webCamTextureMat.rows(), webCamTextureMat.cols(), CvType.CV_8UC1);
         }
 
         /// <summary>
@@ -78,7 +84,12 @@ namespace OpenCVForUnityExample
             Debug.Log ("OnWebCamTextureToMatHelperDisposed");
             if (grayMat != null)
                 grayMat.Dispose ();
-                        
+            if (redframe_threshold != null)
+                redframe_threshold.Dispose();
+            if (blueframe_threshold != null)
+                blueframe_threshold.Dispose();
+            if (frame_threshold != null)
+                frame_threshold.Dispose();
         }
 
         /// <summary>
@@ -96,11 +107,31 @@ namespace OpenCVForUnityExample
 
                 Mat rgbaMat = webCamTextureToMatHelper.GetMat ();
 
-                Imgproc.cvtColor (rgbaMat, grayMat, Imgproc.COLOR_RGBA2GRAY);
+                Imgproc.cvtColor(rgbaMat, grayMat, Imgproc.COLOR_RGB2HSV);
+
+                Scalar lower_red = new Scalar(145, 42, 154);
+                Scalar lower_blue = new Scalar(90, 50, 50);
+                Scalar upper_red = new Scalar(255, 255, 255);
+                Scalar upper_blue = new Scalar(130, 255, 255);
+                Core.inRange(grayMat, lower_red, upper_red, redframe_threshold);
+                Core.inRange(grayMat, lower_blue, upper_blue, blueframe_threshold);
+                Core.bitwise_or(redframe_threshold, blueframe_threshold, frame_threshold);
+               
+
+                Size size = new Size(5, 5);
+                Imgproc.erode(frame_threshold, frame_threshold, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, size));
+                Imgproc.dilate(frame_threshold, frame_threshold, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, size));
+
+                Imgproc.erode(frame_threshold, frame_threshold, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, size));
+                Imgproc.dilate(frame_threshold, frame_threshold, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, size));
+
+                Imgproc.erode(frame_threshold, frame_threshold, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, size));
+                Imgproc.dilate(frame_threshold, frame_threshold, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, size));
+
 
                 using (Mat circles = new Mat ()) {
                                         
-                    Imgproc.HoughCircles (grayMat, circles, Imgproc.CV_HOUGH_GRADIENT, 2, 10, 160, 50, 10, 40); 
+                    Imgproc.HoughCircles (frame_threshold, circles, Imgproc.CV_HOUGH_GRADIENT, 1 , frame_threshold.rows() / 2, 20,15,15,100);
                     Point pt = new Point ();
                                         
                     for (int i = 0; i < circles.cols(); i++) {
@@ -108,7 +139,9 @@ namespace OpenCVForUnityExample
                         pt.x = data [0];
                         pt.y = data [1];
                         double rho = data [2];
-                        Imgproc.circle (rgbaMat, pt, (int)rho, new Scalar (255, 0, 0, 255), 5);
+                       // Imgproc.circle (rgbaMat, pt, 3, new Scalar (255, 0, 255), 5);
+                        Imgproc.circle(rgbaMat, pt, (int)rho, new Scalar(255, 0, 0, 255), 5);
+                       
                     }
                 }
 
@@ -167,7 +200,7 @@ namespace OpenCVForUnityExample
         /// </summary>
         public void OnChangeCameraButtonClick ()
         {
-            webCamTextureToMatHelper.Initialize (null, webCamTextureToMatHelper.requestedWidth, webCamTextureToMatHelper.requestedHeight, !webCamTextureToMatHelper.requestedIsFrontFacing);
+            webCamTextureToMatHelper.Initialize (null, webCamTextureToMatHelper.requestedWidth, webCamTextureToMatHelper.requestedHeight, webCamTextureToMatHelper.requestedIsFrontFacing);
         }
     }
 }
